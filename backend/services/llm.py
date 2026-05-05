@@ -185,6 +185,30 @@ class ChatService:
             self._autogen_prompt | self._autogen_llm | self.output_parser
         )
 
+        # ── Chain 5: Cluster Auto-Naming ─────────────────────────────────────
+        # Generates a short, human-readable name for a cluster of notes.
+        # We reuse the _critic_llm (temp=0.3) because categorization should 
+        # be precise and consistent, not overly creative.
+        self._cluster_naming_prompt = ChatPromptTemplate.from_messages([
+            (
+                "system",
+                "You are an expert taxonomy and categorization assistant. "
+                "Your job is to read a collection of note titles and excerpts from a single cluster, "
+                "and generate a highly descriptive, human-readable folder name for them.\n\n"
+                "Rules:\n"
+                "1. The name must be short (2 to 5 words max).\n"
+                "2. Be specific (e.g., 'React Frontend Hooks' instead of just 'Web Dev').\n"
+                "3. Output EXACTLY and ONLY the name. No quotes, no preamble, no markdown formatting."
+            ),
+            (
+                "human",
+                "Please name the cluster containing these notes:\n\n{notes_context}"
+            ),
+        ])
+        self.cluster_naming_chain = (
+            self._cluster_naming_prompt | self._critic_llm | self.output_parser
+        )
+
     # ── Public Method 1: RAG Q&A ─────────────────────────────────────────────
 
     def get_answer(self, query: str, retrieved_chunks: list[dict]) -> str:
@@ -413,6 +437,53 @@ class ChatService:
                 content = "\n".join(raw.splitlines()[1:]).strip()
 
         return {"title": title, "content": content}
+
+
+    # ── Public Method 5: Cluster Auto-Naming ────────────────────────────────
+
+    def generate_cluster_name(self, notes_data: list[dict]) -> str:
+        """
+        Generate a short, descriptive name for a cluster of notes.
+
+        Args:
+            notes_data: List of dicts containing note information.
+                        Format: [{"title": str, "content": str}, ...]
+
+        Returns:
+            A short string (2-5 words) representing the cluster name.
+            Returns "New Cluster" if generation fails or input is empty.
+            
+        Intended call pattern (by ClusterService):
+            name = chat_service.generate_cluster_name([
+                {"title": "Intro to ML", "content": "Machine learning is..."},
+                {"title": "Neural Nets", "content": "Deep learning uses..."}
+            ])
+        """
+        if not notes_data:
+            return "New Cluster"
+
+        # Build a lightweight context string.
+        # We cap at 10 notes and 300 characters per note to prevent context bloat,
+        # as the LLM only needs a general sense of the topic to name it.
+        context_parts = []
+        for n in notes_data[:10]:
+            title = n.get("title", "Untitled").strip()
+            content_snippet = n.get("content", "")[:300].strip()
+            if title or content_snippet:
+                context_parts.append(f"Title: {title}\nSnippet: {content_snippet}...")
+
+        notes_context = "\n\n".join(context_parts)
+        
+        if not notes_context:
+            return "New Cluster"
+
+        try:
+            name = self.cluster_naming_chain.invoke({"notes_context": notes_context})
+            # Clean up any accidental quotes or newlines the LLM might add
+            return name.strip(' *"\'\n')
+        except Exception as e:
+            print(f"Cluster naming failed: {e}")
+            return "Unnamed Cluster"
 
     def _build_context(self, chunks: list[dict]) -> str:
         """
