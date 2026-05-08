@@ -2,8 +2,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from typing import List, Optional
-
-from models.entity import Notes, NoteChunks, Clusters
+from models.entity import Notes,NoteChunks,Clusters
 from crud.clusters import create_cluster
 from services.clustering import ClusterService
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -21,16 +20,10 @@ def create_note(db: Session, user_id, title: str, note_content: str) -> Notes:
     document_vector = np.mean(vectors, axis=0).tolist()
 
     cluster_service = ClusterService(db)
-    cluster_id = cluster_service.process_and_assign_cluster(
-        title, note_content, document_vector
-    )
+    clusterToUse = cluster_service.AssignCluster(title, note_content, document_vector)
 
-    new_note = Notes(
-        user_id=user_id,
-        content=note_content,
-        title=title,
-        cluster_id=cluster_id,
-    )
+    #  Save the main Note
+    new_note = Notes(user_id=user_id, content=note_content, title=title , cluster_id = clusterToUse)
     db.add(new_note)
     db.flush()
 

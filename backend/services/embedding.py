@@ -1,15 +1,22 @@
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
-
+from typing import List
+from langchain_huggingface import HuggingFaceEmbeddings
 from core.config import settings
 
 class EmbeddingService:
     def __init__(self):
-        # Dynamically sets model from .env
-        self.model = HuggingFaceEndpointEmbeddings( model=settings.EMBEDDING_MODEL_NAME,
-    huggingfacehub_api_token=settings.HF_TOKEN)
+        # running local mebedidng model
+        self.model = HuggingFaceEmbeddings(
+            model_name=settings.EMBEDDING_MODEL_NAME,
+            model_kwargs={'device': 'cpu'} 
+        )
         
-    def encode(self, text: str): # need custom script to make it appropiate for langchain
-        return self.model.encode(text).tolist()
+    def encode_documents(self, chunks: List[str]) -> List[List[float]]:
 
-# Single instance to be reused across the app
+        return self.model.embed_documents(chunks)
+
+    def embed_query(self, query: str) -> List[float]:
+
+        return self.model.embed_query(query)
+
+# instance
 embedding_service = EmbeddingService()
