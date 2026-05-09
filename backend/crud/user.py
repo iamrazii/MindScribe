@@ -2,21 +2,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from typing import List, Optional
 
-from models import Users
-from schemas import user_schema
-
-def create_user(db: Session, user: user_schema.UserCreate) -> Users:
-    
+from models.entity import Users
+def create_user(db: Session, user) -> Users:
     db_user = Users(
         username=user.username,
         email=user.email,
-        hashed_password=user.hashed_password 
+        hashed_password=user.hashed_password
     )
-    
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    
     return db_user
 
 def get_user(db: Session, user_id) -> Optional[Users]:

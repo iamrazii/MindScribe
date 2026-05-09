@@ -5,7 +5,7 @@ from typing import List, Optional
 from models.entity import Notes,NoteChunks,Clusters
 from crud.clusters import create_cluster
 from services.clustering import ClusterService
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from services.embedding import embedding_service
 
 
@@ -62,7 +62,7 @@ def retrieve_relevant_chunks(
     Top-k vector similarity retrieval for RAG Q&A.
     Returns: [{"content": str, "source": str}, ...]
     """
-    query_vector = embedding_service.get_query_embedding(query_text)
+    query_vector = embedding_service.embed_query(query_text)
 
     stmt = (
         select(NoteChunks, Notes.title)
@@ -93,7 +93,7 @@ def retrieve_chunks_for_summary(
     Caps distinct source notes at max_notes to prevent LLM context overflow.
     Returns chunks sorted by source-note first-appearance rank.
     """
-    query_vector = embedding_service.get_query_embedding(topic)
+    query_vector = embedding_service.embed_query(topic)
 
     stmt = (
         select(NoteChunks, Notes.title)
@@ -162,7 +162,7 @@ def get_context_radar_suggestions(
     # ── Step 1: Embed the open note's content as a query vector ──────────────
     # We use get_query_embedding() (single-text path) rather than
     # encode_documents() (batch path) because we always have exactly one query.
-    query_vector = embedding_service.get_query_embedding(current_note_content)
+    query_vector = embedding_service.embed_query(current_note_content)
 
     # ── Step 2: Cosine similarity search, excluding the open note ─────────────
     # The WHERE clause filters out chunks belonging to current_note_id so the
