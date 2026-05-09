@@ -1,45 +1,54 @@
-import React, { useState } from 'react';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Save, Sparkles, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState } from "react";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Save, Sparkles, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { api } from "../../lib/api";
 
 export function CreateNote() {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [isAiSuggesting, setIsAiSuggesting] = useState(false);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isAiSuggesting, setIsAiSuggesting] = useState(false);
 
-  const handleAiSuggest = () => {
-    setIsAiSuggesting(true);
-    setTimeout(() => {
-      const suggestions = [
-        '\n\n💡 AI Suggestion: Consider adding more details about the timeline.',
-        '\n\n💡 AI Suggestion: You might want to include examples to support your points.',
-        '\n\n💡 AI Suggestion: Adding a summary at the end would help readers.',
-      ];
-      setContent(content + suggestions[Math.floor(Math.random() * suggestions.length)]);
-      setIsAiSuggesting(false);
-      toast.success('AI suggestion added!');
-    }, 1500);
-  };
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim() || !content.trim()) {
-      toast.error('Please fill in both title and content');
+      toast.error("Please fill in both title and content");
       return;
     }
-
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      await api.notes.create({ title, content });
+      toast.success("Note saved and clustered successfully!");
+      setTitle("");
+      setContent("");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save note");
+    } finally {
       setIsSaving(false);
-      toast.success('Note saved successfully!');
-      setTitle('');
-      setContent('');
-    }, 1000);
+    }
+  };
+
+  const handleAiSuggest = async () => {
+    if (!content.trim()) {
+      toast.error("Write something first so AI can suggest improvements");
+      return;
+    }
+    setIsAiSuggesting(true);
+    try {
+      const res = await api.notes.ask(
+        `Give me a brief, specific suggestion to improve this note content:\n\n${content}`
+      );
+      setContent((c) => c + "\n\n💡 AI Suggestion: " + res.answer);
+      toast.success("AI suggestion added!");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "AI suggestion failed");
+    } finally {
+      setIsAiSuggesting(false);
+    }
   };
 
   return (
@@ -78,42 +87,27 @@ export function CreateNote() {
 
                 <div className="flex gap-3">
                   <Button
-                    variant="default"
-                    size="default"
                     onClick={handleSave}
                     disabled={isSaving}
                     className="bg-gradient-to-r from-cyan-600 to-teal-600 text-white hover:from-cyan-700 hover:to-teal-700 shadow-lg shadow-cyan-900/20"
                   >
                     {isSaving ? (
-                      <>
-                        <Loader2 className="mr-2 size-4 animate-spin" />
-                        Saving...
-                      </>
+                      <><Loader2 className="mr-2 size-4 animate-spin" />Saving...</>
                     ) : (
-                      <>
-                        <Save className="mr-2 size-4" />
-                        Save Note
-                      </>
+                      <><Save className="mr-2 size-4" />Save Note</>
                     )}
                   </Button>
 
                   <Button
                     variant="outline"
-                    size="default"
                     onClick={handleAiSuggest}
                     disabled={isAiSuggesting || !content.trim()}
                     className="border-white/20 bg-white/5 text-gray-200 hover:bg-cyan-500/10 hover:text-cyan-400 hover:border-cyan-500/50"
                   >
                     {isAiSuggesting ? (
-                      <>
-                        <Loader2 className="mr-2 size-4 animate-spin" />
-                        Thinking...
-                      </>
+                      <><Loader2 className="mr-2 size-4 animate-spin" />Thinking...</>
                     ) : (
-                      <>
-                        <Sparkles className="mr-2 size-4" />
-                        AI Suggest
-                      </>
+                      <><Sparkles className="mr-2 size-4" />AI Suggest</>
                     )}
                   </Button>
                 </div>
@@ -128,22 +122,12 @@ export function CreateNote() {
               <CardTitle className="text-white font-semibold">Writing Tips</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-gray-300 relative z-10">
-              <div className="flex items-start gap-2">
-                <span className="text-cyan-400 font-bold">✓</span>
-                <p>Use clear, descriptive titles</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-cyan-400 font-bold">✓</span>
-                <p>Break content into paragraphs</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-cyan-400 font-bold">✓</span>
-                <p>Use AI suggestions for improvements</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-cyan-400 font-bold">✓</span>
-                <p>Save regularly to avoid losing work</p>
-              </div>
+              {["Use clear, descriptive titles", "Break content into paragraphs", "Use AI suggestions for improvements", "Save regularly to avoid losing work"].map((tip) => (
+                <div key={tip} className="flex items-start gap-2">
+                  <span className="text-cyan-400 font-bold">✓</span>
+                  <p>{tip}</p>
+                </div>
+              ))}
             </CardContent>
           </Card>
 
@@ -165,7 +149,7 @@ export function CreateNote() {
               <div className="flex justify-between text-gray-300">
                 <span>Reading time:</span>
                 <span className="text-cyan-400 font-mono font-bold">
-                  {Math.max(1, Math.ceil(content.trim().split(/\s+/).length / 200))} min
+                  {Math.max(1, Math.ceil((content.trim().split(/\s+/).length || 0) / 200))} min
                 </span>
               </div>
             </CardContent>

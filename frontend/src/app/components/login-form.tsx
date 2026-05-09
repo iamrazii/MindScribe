@@ -4,57 +4,53 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardFooter } from "./ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "./ui/tabs";
-import {
-  Eye,
-  EyeOff,
-  Loader2,
-} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { api } from "../lib/api";
+import type { AuthUser } from "../context/AuthContext";
 
-export function LoginForm({ onLoginSuccess }) {
+interface Props {
+  onLoginSuccess: (user: AuthUser) => void;
+}
+
+export function LoginForm({ onLoginSuccess }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loginForm = useForm();
-  const signupForm = useForm();
+  const loginForm = useForm<{ email: string; password: string }>();
+  const signupForm = useForm<{ username: string; email: string; password: string }>();
 
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const validatePassword = (password) => {
-    const minLength = password.length >= 8;
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-
-    return {
-      isValid: minLength && hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar,
-    };
-  };
-
-  const onSignup = async (data) => {
-    if (!validateEmail(data.email)) {
-      signupForm.setError("email", { message: "Please enter a valid email address" });
-      return;
-    }
-    const passwordValidation = validatePassword(data.password);
-    if (!passwordValidation.isValid) {
-      signupForm.setError("password", { message: "Password does not meet requirements" });
-      return;
-    }
+  // ── Login ──────────────────────────────────────────────────────────────────
+  const onLogin = async (data: { email: string; password: string }) => {
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await api.auth.login({ email: data.email, password: data.password });
+      toast.success("Welcome back!");
+      onLoginSuccess(res as AuthUser);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : JSON.stringify(err));
+    } finally {
       setIsLoading(false);
-      onLoginSuccess({ name: data.name, email: data.email });
-    }, 1000);
+    }
+  };
+
+  // ── Signup ─────────────────────────────────────────────────────────────────
+  const onSignup = async (data: { username: string; email: string; password: string }) => {
+    setIsLoading(true);
+    try {
+      const res = await api.auth.register({
+        username: data.username,
+        email: data.email,
+        password: data.password,
+      });
+      toast.success("Account created! Welcome to Mindscribe.");
+      onLoginSuccess(res as AuthUser);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : JSON.stringify(err));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -75,76 +71,94 @@ export function LoginForm({ onLoginSuccess }) {
           </TabsTrigger>
         </TabsList>
 
+        {/* ── Login Tab ──────────────────────────────────────────────────── */}
         <TabsContent value="login" className="mt-6">
           <Card className="overflow-hidden border-none bg-white shadow-2xl rounded-[2.5rem] p-4">
-            <CardContent className="space-y-6 pt-8">
-              <div className="space-y-2">
-                <Label htmlFor="login-email" className="text-sm font-bold text-gray-700">
-                  Email
-                </Label>
-                <Input
-                  id="login-email"
-                  type="email"
-                  placeholder="you@example.com"
-                  className="h-12 rounded-xl border-none bg-gray-50 px-4 focus:ring-2 focus:ring-[#1a8a9d]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="login-password" title="Password" className="text-sm font-bold text-gray-700">
-                  Password
-                </Label>
-                <div className="relative">
+            <form onSubmit={loginForm.handleSubmit(onLogin)}>
+              <CardContent className="space-y-6 pt-8">
+                <div className="space-y-2">
+                  <Label htmlFor="login-email" className="text-sm font-bold text-gray-700">
+                    Email
+                  </Label>
                   <Input
-                    id="login-password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    className="h-12 rounded-xl border-none bg-gray-50 px-4 pr-12 focus:ring-2 focus:ring-[#1a8a9d]"
+                    id="login-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    className="h-12 rounded-xl border-none bg-gray-50 px-4 focus:ring-2 focus:ring-[#1a8a9d]"
+                    {...loginForm.register("email", { required: "Email is required" })}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+                  {loginForm.formState.errors.email && (
+                    <p className="text-xs text-red-500">{loginForm.formState.errors.email.message}</p>
+                  )}
                 </div>
-              </div>
-            </CardContent>
-            <CardFooter className="pb-8 pt-4">
-              <Button
-                variant="default"
-                size="lg"
-                type="button"
-                className="h-14 w-full rounded-2xl bg-[#0a0a0b] text-lg font-semibold text-white hover:bg-black transition-all"
-                onClick={() => onLoginSuccess({ name: "User", email: "user@mindscribe.com" })}
-              >
-                Login
-              </Button>
-            </CardFooter>
+
+                <div className="space-y-2">
+                  <Label htmlFor="login-password" className="text-sm font-bold text-gray-700">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="login-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      className="h-12 rounded-xl border-none bg-gray-50 px-4 pr-12 focus:ring-2 focus:ring-[#1a8a9d]"
+                      {...loginForm.register("password", { required: "Password is required" })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {loginForm.formState.errors.password && (
+                    <p className="text-xs text-red-500">{loginForm.formState.errors.password.message}</p>
+                  )}
+                </div>
+              </CardContent>
+              <CardFooter className="pb-8 pt-4">
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="h-14 w-full rounded-2xl bg-[#0a0a0b] text-lg font-semibold text-white hover:bg-black transition-all"
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="mr-2 animate-spin" /> : "Login"}
+                </Button>
+              </CardFooter>
+            </form>
           </Card>
         </TabsContent>
 
+        {/* ── Signup Tab ─────────────────────────────────────────────────── */}
         <TabsContent value="signup" className="mt-6">
           <Card className="border-none bg-white shadow-2xl rounded-[2.5rem] p-4">
             <form onSubmit={signupForm.handleSubmit(onSignup)}>
               <CardContent className="space-y-4 pt-8">
                 <div className="space-y-1">
-                  <Label className="text-sm font-bold text-gray-700">Full Name</Label>
+                  <Label className="text-sm font-bold text-gray-700">Username</Label>
                   <Input
-                    placeholder="John Doe"
+                    placeholder="john_doe"
                     className="h-12 rounded-xl border-none bg-gray-50"
-                    {...signupForm.register("name", { required: "Name is required" })}
+                    {...signupForm.register("username", { required: "Username is required" })}
                   />
+                  {signupForm.formState.errors.username && (
+                    <p className="text-xs text-red-500">{signupForm.formState.errors.username.message}</p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
                   <Label className="text-sm font-bold text-gray-700">Email</Label>
                   <Input
                     placeholder="you@example.com"
+                    type="email"
                     className="h-12 rounded-xl border-none bg-gray-50"
                     {...signupForm.register("email", { required: "Email is required" })}
                   />
+                  {signupForm.formState.errors.email && (
+                    <p className="text-xs text-red-500">{signupForm.formState.errors.email.message}</p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -156,13 +170,15 @@ export function LoginForm({ onLoginSuccess }) {
                     {...signupForm.register("password", { required: "Password is required" })}
                   />
                   <PasswordStrength password={signupForm.watch("password") || ""} />
+                  {signupForm.formState.errors.password && (
+                    <p className="text-xs text-red-500">{signupForm.formState.errors.password.message}</p>
+                  )}
                 </div>
               </CardContent>
               <CardFooter className="pb-8 pt-4">
                 <Button
-                  variant="default"
-                  size="lg"
                   type="submit"
+                  size="lg"
                   className="h-14 w-full rounded-2xl bg-[#0a0a0b] text-lg font-semibold text-white"
                   disabled={isLoading}
                 >
@@ -177,23 +193,20 @@ export function LoginForm({ onLoginSuccess }) {
   );
 }
 
-function PasswordStrength({ password }) {
+function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
-  const validation = {
+  const checks = {
     minLength: password.length >= 8,
     hasUpperCase: /[A-Z]/.test(password),
-    hasLowerCase: /[a-z]/.test(password),
     hasNumber: /[0-9]/.test(password),
     hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
   };
-
   const requirements = [
-    { label: "8+ chars", met: validation.minLength },
-    { label: "Uppercase", met: validation.hasUpperCase },
-    { label: "Number", met: validation.hasNumber },
-    { label: "Special", met: validation.hasSpecialChar },
+    { label: "8+ chars", met: checks.minLength },
+    { label: "Uppercase", met: checks.hasUpperCase },
+    { label: "Number", met: checks.hasNumber },
+    { label: "Special", met: checks.hasSpecialChar },
   ];
-
   return (
     <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-gray-50 p-3 text-[10px]">
       {requirements.map((req) => (

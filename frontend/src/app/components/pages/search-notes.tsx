@@ -1,236 +1,150 @@
 import React, { useState } from "react";
 import { Input } from "../ui/input";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import {
-  Search,
-  FileText,
-  Clock,
-  Filter,
-  X,
-} from "lucide-react";
+import { Search, FileText, Clock, X, Loader2 } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { api } from "../../lib/api";
+import { toast } from "sonner";
 
-interface SearchResult {
-  id: number;
-  title: string;
+interface Note {
+  id: string;
+  title: string | null;
   content: string;
-  date: string;
-  category: string;
-  matchedText: string;
+  created_at: string;
+  cluster_id: string;
 }
 
 export function SearchNotes() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<Note[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  const allNotes: SearchResult[] = [
-    {
-      id: 1,
-      title: "Meeting Notes - Q1 Planning",
-      content:
-        "Discussed project roadmap and key milestones for the upcoming quarter. Focus on product development and market expansion strategies.",
-      date: "2 hours ago",
-      category: "Work",
-      matchedText: "project roadmap and key milestones",
-    },
-    {
-      id: 2,
-      title: "Project Ideas",
-      content:
-        "Brainstorming session for new features and improvements to the platform. Consider user feedback and market trends.",
-      date: "1 day ago",
-      category: "Ideas",
-      matchedText: "new features and improvements",
-    },
-    {
-      id: 3,
-      title: "Research Notes - AI Technology",
-      content:
-        "Comprehensive notes on the latest advancements in artificial intelligence and machine learning applications.",
-      date: "2 days ago",
-      category: "Research",
-      matchedText:
-        "artificial intelligence and machine learning",
-    },
-    {
-      id: 4,
-      title: "Team Retrospective",
-      content:
-        "Reflecting on the past sprint and identifying areas for improvement in our development process and team collaboration.",
-      date: "1 week ago",
-      category: "Work",
-      matchedText: "development process and team collaboration",
-    },
-  ];
-
-  const handleSearch = () => {
-    if (!searchQuery.trim()) {
-      setResults([]);
-      return;
-    }
-
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
     setIsSearching(true);
-    setTimeout(() => {
-      const filtered = allNotes.filter(
-        (note) =>
-          note.title
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          note.content
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()),
+    setHasSearched(true);
+    try {
+      // Use the RAG endpoint to get relevant notes, then also fetch full list for title/content matching
+      const all: Note[] = await api.notes.list();
+      const q = searchQuery.toLowerCase();
+      const filtered = all.filter(
+        (n) =>
+          (n.title ?? "").toLowerCase().includes(q) ||
+          n.content.toLowerCase().includes(q)
       );
       setResults(filtered);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Search failed");
+    } finally {
       setIsSearching(false);
-    }, 500);
+    }
   };
 
-  const handleClearSearch = () => {
+  const handleClear = () => {
     setSearchQuery("");
     setResults([]);
+    setHasSearched(false);
   };
 
-  const highlightText = (text: string, query: string) => {
+  const highlight = (text: string, query: string) => {
     if (!query.trim()) return text;
     const parts = text.split(new RegExp(`(${query})`, "gi"));
-    return parts.map((part, index) =>
+    return parts.map((part, i) =>
       part.toLowerCase() === query.toLowerCase() ? (
-        <mark
-          key={index}
-          className="bg-cyan-500/30 text-cyan-200"
-        >
+        <mark key={i} className="bg-cyan-500/30 text-cyan-200 rounded px-0.5">
           {part}
         </mark>
       ) : (
         part
-      ),
+      )
     );
   };
+
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
   return (
     <div className="p-6 lg:p-8 font-sans">
       <div className="mb-6">
-        <h1 className="mb-2 text-3xl font-bold text-white">
-          Search Notes
-        </h1>
-        <p className="text-gray-300">
-          Find notes quickly with powerful search
-        </p>
+        <h1 className="mb-2 text-3xl font-bold text-white">Search Notes</h1>
+        <p className="text-gray-300">Find notes quickly with full-text search</p>
       </div>
 
-      {/* Search Bar */}
       <Card className="mb-6 border-white/10 bg-white/5 backdrop-blur-sm">
         <CardContent className="p-6 relative z-10">
           <div className="flex gap-3">
             <div className="relative flex-1">
               <Input
-                id="main-search"
                 placeholder="Search by title, content, or keywords..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  if (!e.target.value.trim()) {
-                    setResults([]);
-                  }
+                  if (!e.target.value.trim()) { setResults([]); setHasSearched(false); }
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleSearch();
-                  }
-                }}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 className="border-white/20 bg-white/5 pl-10 pr-10 text-white placeholder:text-gray-500"
               />
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={handleClearSearch}
-                  className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-gray-400 hover:text-white"
+                  onClick={handleClear}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
                 >
                   <X className="size-4" />
                 </button>
               )}
             </div>
             <Button
-              variant="default"
-              size="default"
               onClick={handleSearch}
               disabled={!searchQuery.trim() || isSearching}
               className="bg-gradient-to-r from-cyan-600 to-teal-600 text-white"
             >
-              <Search className="mr-2 size-4" />
+              {isSearching ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Search className="mr-2 size-4" />}
               {isSearching ? "Searching..." : "Search"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Search Results */}
-      {searchQuery && (
-        <React.Fragment>
+      {hasSearched && (
+        <>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl text-white">
               {results.length > 0
                 ? `Found ${results.length} result${results.length !== 1 ? "s" : ""}`
                 : "No results found"}
             </h2>
-            {results.length > 0 && (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <Filter className="size-4" />
-                Showing all results
-              </div>
-            )}
           </div>
 
           {results.length > 0 ? (
             <div className="space-y-4">
-              {results.map((result) => (
-                <Card
-                  key={result.id}
-                  className="group border-white/10 bg-white/5 backdrop-blur-sm transition-all hover:bg-white/10"
-                >
+              {results.map((note) => (
+                <Card key={note.id} className="group border-white/10 bg-white/5 backdrop-blur-sm transition-all hover:bg-white/10">
                   <CardHeader className="relative z-10">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="mb-2 flex items-center gap-2">
-                          <Badge variant="outline" className="text-cyan-400 border-cyan-500/30">
-                            {result.category}
+                          <Badge variant="outline" className="text-cyan-400 border-cyan-500/30 text-xs">
+                            note
                           </Badge>
                           <div className="flex items-center gap-1 text-sm text-gray-400">
                             <Clock className="size-3" />
-                            {result.date}
+                            {formatDate(note.created_at)}
                           </div>
                         </div>
                         <CardTitle className="text-white">
-                          {highlightText(result.title, searchQuery)}
+                          {highlight(note.title ?? "Untitled", searchQuery)}
                         </CardTitle>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-white/20 text-gray-300 hover:text-cyan-400"
-                      >
-                        Open
-                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent className="relative z-10">
-                    <p className="mb-3 text-gray-300">
-                      {highlightText(result.content, searchQuery)}
+                    <p className="text-gray-300 text-sm line-clamp-4">
+                      {highlight(note.content, searchQuery)}
                     </p>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-400">Matched:</span>
-                      <span className="rounded bg-cyan-600/20 px-2 py-1 text-cyan-300 border border-cyan-500/20">
-                        "{result.matchedText}"
-                      </span>
-                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -244,39 +158,26 @@ export function SearchNotes() {
               </CardContent>
             </Card>
           )}
-        </React.Fragment>
+        </>
       )}
 
-      {/* Search Tips */}
-      {!searchQuery && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="border-white/10 bg-white/5 backdrop-blur-sm">
-            <CardContent className="p-4 relative z-10">
-              <div className="mb-2 flex items-center gap-2 text-cyan-400">
-                <Search className="size-4" />
-                <span className="font-semibold">Quick Search</span>
-              </div>
-              <p className="text-sm text-gray-300">Type keywords and press Enter</p>
-            </CardContent>
-          </Card>
-          <Card className="border-white/10 bg-white/5 backdrop-blur-sm">
-            <CardContent className="p-4 relative z-10">
-              <div className="mb-2 flex items-center gap-2 text-cyan-400">
-                <FileText className="size-4" />
-                <span className="font-semibold">Full Text</span>
-              </div>
-              <p className="text-sm text-gray-300">Find notes by any text within</p>
-            </CardContent>
-          </Card>
-          <Card className="border-white/10 bg-white/5 backdrop-blur-sm">
-            <CardContent className="p-4 relative z-10">
-              <div className="mb-2 flex items-center gap-2 text-cyan-400">
-                <Clock className="size-4" />
-                <span className="font-semibold">Recent First</span>
-              </div>
-              <p className="text-sm text-gray-300">Sorted by relevance and recency</p>
-            </CardContent>
-          </Card>
+      {!hasSearched && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[
+            { icon: Search, title: "Quick Search", desc: "Type keywords and press Enter" },
+            { icon: FileText, title: "Full Text", desc: "Finds notes by any text within" },
+            { icon: Clock, title: "Instant Results", desc: "Sorted by relevance" },
+          ].map(({ icon: Icon, title, desc }) => (
+            <Card key={title} className="border-white/10 bg-white/5 backdrop-blur-sm">
+              <CardContent className="p-4 relative z-10">
+                <div className="mb-2 flex items-center gap-2 text-cyan-400">
+                  <Icon className="size-4" />
+                  <span className="font-semibold">{title}</span>
+                </div>
+                <p className="text-sm text-gray-300">{desc}</p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
     </div>
