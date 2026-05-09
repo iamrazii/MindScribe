@@ -3,6 +3,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func, delete
 from sklearn.cluster import AgglomerativeClustering
 from models.entity import Clusters,Notes
+from services.llm import ChatService
+import concurrent.futures
+# Make sure this import path matches where you saved ChatService!
+from services.llm import ChatService
 
 class ClusterService:
     def __init__(self, db: Session):
@@ -39,8 +43,14 @@ class ClusterService:
             return best_cluster.id
             
         else:
+            print("🌐 Asking Groq to name the new cluster...")
+            chat = ChatService()
+            smart_name = chat.generate_cluster_name([
+                {"title": title, "content": content}
+            ])
+            print(f"✅ Groq named the cluster: '{smart_name}'")
             new_cluster = Clusters(
-                name=title, # In a future iteration, an LLM could generate a broader name here
+                name=smart_name,
                 description=content,
                 cluster_vector=document_vector
             )
@@ -131,26 +141,41 @@ class ClusterService:
         return agglo.labels_, centroid_0, centroid_1, distance
 
 
-
-   # TO DO : NEED TO UPDATE THE NAMING AND DESC OF CLUSTERS
     def _execute_split_in_db(self, original_cluster, centroid_0, centroid_1, labels, valid_notes):
         
-        original_name = original_cluster.name
+        # 1. Prepare context for the LLM
+        # We group the titles and contents based on the mathematical labels (0 or 1)
+        group_0_data = [{"title": n.title, "content": n.content} for idx, n in enumerate(valid_notes) if labels[idx] == 0]
+        group_1_data = [{"title": n.title, "content": n.content} for idx, n in enumerate(valid_notes) if labels[idx] == 1]
         
-        # Update original
-        original_cluster.name = f"{original_name} (Part 1)"
+        print("🌐 Dispatching parallel threads to Groq for Mitosis naming...")
+        chat = ChatService()
+
+        # 2. THE FORK: Execute both API calls simultaneously
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_0 = executor.submit(chat.generate_cluster_name, group_0_data)
+            future_1 = executor.submit(chat.generate_cluster_name, group_1_data)
+            
+            # THE JOIN: Wait for both responses to finish
+            name_0 = future_0.result()
+            name_1 = future_1.result()
+            
+        print(f"✅ Groq split names generated: '{name_0}' and '{name_1}'")
+        
+        # 3. Update original cluster (Group 0)
+        original_cluster.name = name_0
         original_cluster.cluster_vector = centroid_0.tolist()
 
-        # Create new
+        # 4. Create new cluster (Group 1)
         new_cluster = Clusters(
-            name=f"New Sub-Topic from {original_name}",
+            name=name_1,
             description="Auto-generated via Agglomerative Mitosis",
             cluster_vector=centroid_1.tolist()
         )
         self.db.add(new_cluster)
         self.db.flush()
 
-        # Reassign notes
+        # 5. Reassign notes mathematically separated into Group 1
         for idx, label in enumerate(labels):
             if label == 1:
                 valid_notes[idx].cluster_id = new_cluster.id

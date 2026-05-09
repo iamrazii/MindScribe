@@ -7,13 +7,7 @@ from .embedding import embedding_service
 
 class ChatService:
     def __init__(self):
-
-        # ── Shared output parser ─────────────────────────────────────────────
         self.output_parser = StrOutputParser()
-
-        # ── Core LLM (Groq LLaMA 70B, temp=0.7) ────────────────────────────
-        # Used by Q&A and Summarization — tasks that benefit from
-        # balanced, natural language generation.
         self.llm = ChatGroq(
             model=settings.LLM_MODEL_NAME,
             api_key=settings.GROQ_API_KEY,
@@ -21,8 +15,6 @@ class ChatService:
         )
         self.embedder = embedding_service
 
-        # ── Chain 1: RAG Q&A ─────────────────────────────────────────────────
-        # Answers a specific, pointed question using retrieved chunk context.
         self._qa_prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
@@ -35,8 +27,6 @@ class ChatService:
         ])
         self.qa_chain = self._qa_prompt | self.llm | self.output_parser
 
-        # ── Chain 2: Topic Summarization ─────────────────────────────────────
-        # Synthesizes multiple notes on a topic into a structured overview.
         self._summarization_prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
@@ -58,9 +48,6 @@ class ChatService:
             self._summarization_prompt | self.llm | self.output_parser
         )
 
-        # ── Chain 3: Note Critic ─────────────────────────────────────────────
-        # Evaluates a SINGLE note across five dimensions.
-        # Uses temp=0.3 — critique must be precise and repeatable, not creative.
         self._critic_llm = ChatGroq(
             model=settings.LLM_MODEL_NAME,
             api_key=settings.GROQ_API_KEY,
@@ -116,21 +103,6 @@ class ChatService:
         self.critic_chain = (
             self._critic_prompt | self._critic_llm | self.output_parser
         )
-
-        # ── Chain 4: AutoGeneration ──────────────────────────────────────────
-        # Generates a structured note draft from a free-text user prompt.
-        #
-        # Why temp=0.8?
-        # Higher than Q&A (0.7) and Summarization (0.7) because generation
-        # is a creative task — we want the LLM to produce rich, original
-        # content rather than cautious, templated output.
-        # Lower than 1.0 to prevent incoherent or hallucinated structure.
-        #
-        # Why a separate LLM instance?
-        # Each chain in ChatService has its own temperature tuned to the
-        # nature of its task. Sharing one LLM instance would force a
-        # one-size-fits-all temperature that degrades output quality
-        # across at least one task.
         self._autogen_llm = ChatGroq(
             model=settings.LLM_MODEL_NAME,
             api_key=settings.GROQ_API_KEY,
@@ -185,10 +157,6 @@ class ChatService:
             self._autogen_prompt | self._autogen_llm | self.output_parser
         )
 
-        # ── Chain 5: Cluster Auto-Naming ─────────────────────────────────────
-        # Generates a short, human-readable name for a cluster of notes.
-        # We reuse the _critic_llm (temp=0.3) because categorization should 
-        # be precise and consistent, not overly creative.
         self._cluster_naming_prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
@@ -209,7 +177,6 @@ class ChatService:
             self._cluster_naming_prompt | self._critic_llm | self.output_parser
         )
 
-    # ── Public Method 1: RAG Q&A ─────────────────────────────────────────────
 
     def get_answer(self, query: str, retrieved_chunks: list[dict]) -> str:
         """
@@ -232,7 +199,6 @@ class ChatService:
         except Exception as e:
             return f"LLM generation error: {e}"
 
-    # ── Public Method 2: Topic Summarization ─────────────────────────────────
 
     def summarize_notes(self, topic: str, retrieved_chunks: list[dict]) -> str:
         """
@@ -261,7 +227,6 @@ class ChatService:
         except Exception as e:
             return f"Summarization error: {e}"
 
-    # ── Public Method 3: Note Critic ─────────────────────────────────────────
 
     def critique_note(self, note_title: str, note_content: str) -> str:
         """
@@ -304,7 +269,6 @@ class ChatService:
                 "Please try again. If the problem persists, check your Groq API key."
             )
 
-    # ── Public Method 4: AutoGeneration ─────────────────────────────────────
 
     def generate_note_draft(self, prompt: str) -> dict:
 
@@ -335,10 +299,6 @@ class ChatService:
                 ),
             }
 
-        # ── Guard: prompt too short ───────────────────────────────────────────
-        # A one-word prompt like "python" gives the LLM almost no direction
-        # and produces generic, low-value output. We require at least 3 words
-        # so there's enough signal to generate a useful, focused note.
         if len(prompt.split()) < 3:
             return {
                 "title"  : None,
@@ -350,10 +310,6 @@ class ChatService:
                 ),
             }
 
-        # ── Guard: prompt too long ────────────────────────────────────────────
-        # The prompt itself becomes part of the LLM input. A 500+ word prompt
-        # is likely a paste of existing content — that belongs in create_note(),
-        # not the generation endpoint.
         if len(prompt.split()) > 500:
             return {
                 "title"  : None,
@@ -365,7 +321,6 @@ class ChatService:
                 ),
             }
 
-        # ── LLM call ─────────────────────────────────────────────────────────
         try:
             raw_output = self.autogeneration_chain.invoke({"prompt": prompt})
         except Exception as e:
@@ -379,16 +334,6 @@ class ChatService:
                 ),
             }
 
-        # ── Parse LLM output ─────────────────────────────────────────────────
-        # Expected format from the prompt:
-        #   TITLE: <title text>
-        #   ---
-        #   <note body>
-        #
-        # We split on the separator and extract title + body defensively.
-        # If the LLM deviates from the format, we still return something
-        # useful rather than crashing — the whole raw output becomes the
-        # content and we use the user's prompt as a fallback title.
         parsed = self._parse_autogen_output(raw_output, fallback_title=prompt)
 
         return {
@@ -397,7 +342,6 @@ class ChatService:
             "error"  : None,
         }
 
-    # ── Private Helpers ───────────────────────────────────────────────────────
 
     def _parse_autogen_output(self, raw: str, fallback_title: str) -> dict:
         """
@@ -439,11 +383,10 @@ class ChatService:
         return {"title": title, "content": content}
 
 
-    # ── Public Method 5: Cluster Auto-Naming ────────────────────────────────
 
     def generate_cluster_name(self, notes_data: list[dict]) -> str:
         """
-        Generate a short, descriptive name for a cluster of notes.
+        Generate a short, descriptive and generalized name for a cluster of notes.
 
         Args:
             notes_data: List of dicts containing note information.
@@ -461,10 +404,6 @@ class ChatService:
         """
         if not notes_data:
             return "New Cluster"
-
-        # Build a lightweight context string.
-        # We cap at 10 notes and 300 characters per note to prevent context bloat,
-        # as the LLM only needs a general sense of the topic to name it.
         context_parts = []
         for n in notes_data[:10]:
             title = n.get("title", "Untitled").strip()
