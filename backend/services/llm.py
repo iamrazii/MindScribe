@@ -3,6 +3,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from core.config import settings
 from .embedding import embedding_service
+from sqlalchemy.orm import Session
+import uuid
+from crud.history import get_recent_history, format_history_for_llm
 
 
 class ChatService:
@@ -21,6 +24,7 @@ class ChatService:
                 "You are an assistant that answers user questions using the provided context.\n"
                 "Only use the information in the context to answer.\n"
                 "If the answer is not present in the context, reply that you don't know.\n\n"
+                "User History:\n{user_history}\n\n"
                 "Context:\n{context}",
             ),
             ("human", "{query}"),
@@ -40,6 +44,7 @@ class ChatService:
                 "- Identify and surface recurring themes or contradictions between notes\n"
                 "- Do NOT fabricate information absent from the notes\n"
                 "- End with a brief 'Key Takeaways' section (3–5 bullet points)\n\n"
+                "User History:\n{user_history}\n\n"
                 "Notes:\n{context}",
             ),
             ("human", "Please summarize my notes on the topic: {topic}"),
@@ -91,7 +96,8 @@ class ChatService:
                 "Each suggestion must reference a specific part of the note.>\n\n"
                 "### Positive Highlights\n"
                 "<Bullet list of what the note does well. "
-                "This section is mandatory — never return a purely negative critique.>",
+                "This section is mandatory — never return a purely negative critique.>\n\n"
+                "User History:\n{user_history}",
             ),
             (
                 "human",
@@ -146,7 +152,8 @@ class ChatService:
                 "   - Do NOT add sections beyond those listed above unless the topic "
                 "     genuinely requires it\n"
                 "   - Aim for 300–600 words in the note body — thorough but scannable\n"
-                "   - Write in clear, plain English suitable for a personal knowledge base",
+                "   - Write in clear, plain English suitable for a personal knowledge base\n\n"
+                "User History:\n{user_history}",
             ),
             (
                 "human",
@@ -178,7 +185,7 @@ class ChatService:
         )
 
 
-    def get_answer(self, query: str, retrieved_chunks: list[dict]) -> str:
+    def get_answer(self, db: Session, user_id: uuid.UUID, query: str, retrieved_chunks: list[dict]) -> str:
         """
         Generate a pointed answer from retrieved note chunks.
 
@@ -194,13 +201,16 @@ class ChatService:
         if not context_text:
             return "I could not find any relevant notes to answer your question."
 
+        history_list = get_recent_history(db, user_id)
+        user_history_str = format_history_for_llm(history_list)
+
         try:
-            return self.qa_chain.invoke({"context": context_text, "query": query})
+            return self.qa_chain.invoke({"context": context_text, "query": query, "user_history": user_history_str})
         except Exception as e:
             return f"LLM generation error: {e}"
 
 
-    def summarize_notes(self, topic: str, retrieved_chunks: list[dict]) -> str:
+    def summarize_notes(self, db: Session, user_id: uuid.UUID, topic: str, retrieved_chunks: list[dict]) -> str:
         """
         Synthesize retrieved note chunks into a structured topic summary.
 
@@ -220,15 +230,18 @@ class ChatService:
 
         context_text = self._build_context_for_summary(retrieved_chunks)
 
+        history_list = get_recent_history(db, user_id)
+        user_history_str = format_history_for_llm(history_list)
+
         try:
             return self.summarization_chain.invoke(
-                {"context": context_text, "topic": topic}
+                {"context": context_text, "topic": topic, "user_history": user_history_str}
             )
         except Exception as e:
             return f"Summarization error: {e}"
 
 
-    def critique_note(self, note_title: str, note_content: str) -> str:
+    def critique_note(self, db: Session, user_id: uuid.UUID, note_title: str, note_content: str) -> str:
         """
         Evaluate a single note and return structured, scored, actionable feedback.
 
@@ -259,9 +272,12 @@ class ChatService:
                 f"({word_count:,} words). Please split it into smaller notes first."
             )
 
+        history_list = get_recent_history(db, user_id)
+        user_history_str = format_history_for_llm(history_list)
+
         try:
             return self.critic_chain.invoke(
-                {"note_title": note_title, "note_content": note_content}
+                {"note_title": note_title, "note_content": note_content, "user_history": user_history_str}
             )
         except Exception as e:
             return (
@@ -270,7 +286,7 @@ class ChatService:
             )
 
 
-    def generate_note_draft(self, prompt: str) -> dict:
+    def generate_note_draft(self, db: Session, user_id: uuid.UUID, prompt: str) -> dict:
 
         """
     Generates a structured note draft (title and body) from a free-text prompt.
@@ -321,8 +337,11 @@ class ChatService:
                 ),
             }
 
+        history_list = get_recent_history(db, user_id)
+        user_history_str = format_history_for_llm(history_list)
+
         try:
-            raw_output = self.autogeneration_chain.invoke({"prompt": prompt})
+            raw_output = self.autogeneration_chain.invoke({"prompt": prompt, "user_history": user_history_str})
         except Exception as e:
             return {
                 "title"  : None,

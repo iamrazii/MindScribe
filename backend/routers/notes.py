@@ -22,6 +22,7 @@ from crud.notes import (
     get_context_radar_suggestions,
     handle_note_update,
 )
+from crud.history import create_history
 from db.session import get_db
 from models.entity import Users
 from schemas.note_schema import (
@@ -56,7 +57,9 @@ def create(
     db: Session = Depends(get_db),
     user: Users = Depends(get_current_user),
 ):
-    return create_note(db, user.id, body.title, body.content)
+    note = create_note(db, user.id, body.title, body.content)
+    create_history(db, user.id, "Created Note", f"Title: {body.title}")
+    return note
 
 
 @router.get("", response_model=List[NoteOut])
@@ -94,6 +97,7 @@ def update_note(
     updated = handle_note_update(db, note_id, user.id, body.title, body.content)
     if not updated:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Update failed.")
+    create_history(db, user.id, "Updated Note", f"Note ID: {note_id}")
     return updated
 
 
@@ -109,6 +113,7 @@ def delete_note(
     ok = delete_note_and_cleanup(db, note_id, user.id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found.")
+    create_history(db, user.id, "Deleted Note", f"Note ID: {note_id}")
 
 
 # ── AI features ───────────────────────────────────────────────────────────────
@@ -123,8 +128,9 @@ def ask_question(
     chunks = retrieve_relevant_chunks(db, body.query, user.id)
     if not chunks:
         return {"answer": "I couldn't find relevant notes to answer that question."}
-    context = "\n\n".join(f"[{c['source']}]\n{c['content']}" for c in chunks)
-    answer = chat_service.qa_chain.invoke({"context": context, "query": body.query})
+    
+    answer = chat_service.get_answer(db, user.id, body.query, chunks)
+    create_history(db, user.id, "Asked Question", f"Query: {body.query}")
     return {"answer": answer}
 
 
@@ -138,8 +144,9 @@ def summarize(
     chunks = retrieve_chunks_for_summary(db, body.topic, user.id)
     if not chunks:
         return {"summary": "No notes found on that topic."}
-    context = "\n\n".join(f"[{c['source']}]\n{c['content']}" for c in chunks)
-    summary = chat_service.summarization_chain.invoke({"context": context, "topic": body.topic})
+    
+    summary = chat_service.summarize_notes(db, user.id, body.topic, chunks)
+    create_history(db, user.id, "Summarized Topic", f"Topic: {body.topic}")
     return {"summary": summary}
 
 
@@ -151,7 +158,8 @@ def evaluate(
 ):
     """Evaluate a specific note using the critic LLM."""
     note = _get_owned_note(body.note_id, user, db)
-    feedback = chat_service.critic_chain.invoke({"note_title": note.title, "note_content": note.content})
+    feedback = chat_service.critique_note(db, user.id, note.title, note.content)
+    create_history(db, user.id, "Evaluated Note", f"Title: {note.title}")
     return {"evaluation": feedback, "title": note.title}
 
 

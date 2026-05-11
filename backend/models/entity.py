@@ -34,6 +34,12 @@ class Users(Base):
         back_populates="receiver"
     )
 
+    # 1:m (user -> history)
+    history: Mapped[List["UserHistory"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
 class Notes(Base):
     __tablename__ = "notes"
 
@@ -125,3 +131,16 @@ class Clusters(Base):
         back_populates="cluster",
         cascade="all, delete-orphan"
     )
+
+class UserHistory(Base):
+    __tablename__ = "user_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE")
+    )
+    action: Mapped[str] = mapped_column(Text)
+    details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+
+    user: Mapped["Users"] = relationship(back_populates="history")
