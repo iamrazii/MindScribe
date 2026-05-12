@@ -40,3 +40,7 @@ class GenerateRequest(BaseModel):
 
 class SuggestRequest(BaseModel):
     content: str
+
+class RadarRequest(BaseModel):
+    note_id: uuid.UUID
+    content: str

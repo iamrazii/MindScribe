@@ -27,7 +27,8 @@ from schemas.note_schema import (
     EvaluateRequest,
     ChunkSuggestion,
     GenerateRequest,
-    SuggestRequest
+    SuggestRequest,
+    RadarRequest
 )
 from services.llm import ChatService
 
@@ -137,6 +138,15 @@ def evaluate(
     feedback = chat_service.critique_note(db, user.id, note.title, note.content)
     create_history(db, user.id, "Evaluated Note", f"Title: {note.title}")
     return {"evaluation": feedback, "title": note.title}
+
+@router.post("/radar", response_model=List[ChunkSuggestion])
+def post_radar(
+    body: RadarRequest,
+    db: Session = Depends(get_db),
+    user: Users = Depends(get_current_user),
+):
+    note = _get_accessible_note(body.note_id, user, db)
+    return get_context_radar_suggestions(db, note.id, user.id, content=body.content)
 
 @router.get("/radar", response_model=List[ChunkSuggestion])
 def get_radar(
