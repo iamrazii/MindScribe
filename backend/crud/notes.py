@@ -116,18 +116,26 @@ def retrieve_chunks_for_summary(db: Session, topic: str, user_id, limit: int = 1
     results = db.execute(stmt).all()
     return [{"content": row[0], "source": row[1], "distance": row[2]} for row in results]
 
-def get_context_radar_suggestions(db: Session, note_id, user_id, limit: int = 5) -> List[dict]:
-    stmt = select(Notes).where(Notes.id == note_id, Notes.user_id == user_id)
-    source_note = db.execute(stmt).scalar_one_or_none()
-    if not source_note:
+def get_context_radar_suggestions(db: Session, note_id, user_id, content: Optional[str] = None, limit: int = 5) -> List[dict]:
+    if not content:
+        stmt = select(Notes).where(Notes.id == note_id, Notes.user_id == user_id)
+        source_note = db.execute(stmt).scalar_one_or_none()
+        if not source_note or not source_note.content:
+            return []
+        content = source_note.content
+
+    if not content.strip():
         return []
-        
-    chunks_stmt = select(NoteChunks.embedding).where(NoteChunks.note_id == note_id)
-    chunk_embeddings = db.execute(chunks_stmt).scalars().all()
-    if not chunk_embeddings:
+
+    # Avoid truncation by splitting the live text the exact same way we populated the DB
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    chunk_texts = text_splitter.split_text(content)
+    if not chunk_texts:
         return []
-        
-    source_vector = np.mean([emb for emb in chunk_embeddings], axis=0).tolist()
+
+    vectors = embedding_service.encode_documents(chunk_texts)
+    source_vector = np.mean(vectors, axis=0).tolist()
+    
     distance_col = NoteChunks.embedding.cosine_distance(source_vector).label("distance")
     
     radar_stmt = (
@@ -136,7 +144,7 @@ def get_context_radar_suggestions(db: Session, note_id, user_id, limit: int = 5)
         .where(Notes.user_id == user_id)
         .where(Notes.id != note_id)
         .order_by(distance_col)
-        .limit(limit)
+        .limit(limit * 5) # increased limit to ensure enough rows after unique note dedup
     )
     
     results = db.execute(radar_stmt).all()
@@ -151,5 +159,7 @@ def get_context_radar_suggestions(db: Session, note_id, user_id, limit: int = 5)
                 "excerpt": row[2][:150] + "...",
                 "distance": float(row[3])
             }
+            if len(suggestions) == limit:
+                break
             
-    return list(suggestions.values())[:limit]
+    return list(suggestions.values())
