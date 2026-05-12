@@ -2,6 +2,8 @@ import uuid
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+
 from core.deps import get_current_user
 from crud.notes import (
     create_note,
@@ -15,7 +17,7 @@ from crud.notes import (
 )
 from crud.history import create_history
 from db.session import get_db
-from models.entity import Users
+from models.entity import Users, Messages, Notes
 from schemas.note_schema import (
     NoteCreate,
     NoteOut,
@@ -32,11 +34,23 @@ from services.llm import ChatService
 router = APIRouter()
 chat_service = ChatService()
 
-def _get_owned_note(note_id: uuid.UUID, user: Users, db: Session):
+def _get_accessible_note(note_id: uuid.UUID, user: Users, db: Session):
     note = get_note_by_id(db, note_id, user.id)
-    if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
-    return note
+    if note:
+        return note
+        
+    stmt = select(Messages).where(
+        Messages.receiver_id == user.id,
+        Messages.note_id == note_id
+    ).limit(1)
+    shared_msg = db.execute(stmt).scalar_one_or_none()
+    
+    if shared_msg:
+        shared_note = db.get(Notes, note_id)
+        if shared_note:
+            return shared_note
+            
+    raise HTTPException(status_code=404, detail="Note not found or access denied")
 
 @router.post("", response_model=NoteOut)
 def create(
@@ -61,7 +75,7 @@ def get_note(
     db: Session = Depends(get_db),
     user: Users = Depends(get_current_user),
 ):
-    return _get_owned_note(note_id, user, db)
+    return _get_accessible_note(note_id, user, db)
 
 @router.put("/update", response_model=NoteOut)
 def update_note(
@@ -72,7 +86,7 @@ def update_note(
 ):
     note = handle_note_update(db, note_id, user.id, body.title, body.content)
     if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise HTTPException(status_code=404, detail="Note not found or access denied")
     create_history(db, user.id, "Updated Note", f"Title: {note.title}")
     return note
 
@@ -84,7 +98,7 @@ def delete_note(
 ):
     success = delete_note_and_cleanup(db, note_id, user.id)
     if not success:
-        raise HTTPException(status_code=404, detail="Note not found")
+        raise HTTPException(status_code=404, detail="Note not found or access denied")
     create_history(db, user.id, "Deleted Note")
     return None
 
@@ -119,7 +133,7 @@ def evaluate(
     db: Session = Depends(get_db),
     user: Users = Depends(get_current_user),
 ):
-    note = _get_owned_note(body.note_id, user, db)
+    note = _get_accessible_note(body.note_id, user, db)
     feedback = chat_service.critique_note(db, user.id, note.title, note.content)
     create_history(db, user.id, "Evaluated Note", f"Title: {note.title}")
     return {"evaluation": feedback, "title": note.title}
@@ -130,8 +144,7 @@ def get_radar(
     db: Session = Depends(get_db),
     user: Users = Depends(get_current_user),
 ):
-    note = _get_owned_note(note_id, user, db)
-    # FIXED: Removed note.content to match the CRUD function signature
+    note = _get_accessible_note(note_id, user, db)
     return get_context_radar_suggestions(db, note.id, user.id)
 
 @router.post("/generate")

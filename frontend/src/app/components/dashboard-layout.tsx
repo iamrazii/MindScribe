@@ -13,7 +13,8 @@ import {
   Network,
   MessageSquare,
   FileCheck,
-  Trash2
+  Trash2,
+  Inbox // Added Inbox icon
 } from 'lucide-react';
 import { Button } from './ui/button';
 
@@ -33,6 +34,7 @@ export function DashboardLayout({ user, onLogout }: DashboardLayoutProps) {
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Create Note', href: '/create', icon: PlusCircle },
     { name: 'View Notes', href: '/view', icon: Eye },
+    { name: 'Messages', href: '/messages', icon: Inbox }, 
     { name: 'Search', href: '/search', icon: Search },
     { name: 'Knowledge Map', href: '/knowledge-map', icon: Network },
     { name: 'Smart Search', href: '/chatbot', icon: MessageSquare },

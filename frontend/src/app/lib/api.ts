@@ -115,7 +115,7 @@ export const api = {
 
   messages: {
     send: (body: {
-      receiver_username: string;
+      receiver_email: string;
       content: string;
       note_id?: string;
     }) =>
@@ -141,8 +141,8 @@ export const api = {
     me: () =>
       fetch(`${BASE}/users/me`, { headers: authHeaders() }).then(handleResponse),
 
-    search: (username: string) =>
-      fetch(`${BASE}/users/search?username=${encodeURIComponent(username)}`, {
+    search: (email: string) =>
+      fetch(`${BASE}/users/search?email=${encodeURIComponent(email)}`, {
         headers: authHeaders(),
       }).then(handleResponse),
   },

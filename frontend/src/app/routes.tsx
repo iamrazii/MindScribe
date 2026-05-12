@@ -11,6 +11,7 @@ import { SearchNotes } from "./components/pages/search-notes";
 import { DeleteNote } from "./components/pages/delete-note";
 import { KnowledgeMap } from "./components/pages/knowledge-map";
 import { Chatbot } from "./components/pages/chatbot";
+import { Messages } from "./components/pages/messages"; // Imported Messages
 
 export const createRouter = (user: any, onLogout: () => void) =>
   createBrowserRouter([
@@ -23,6 +24,7 @@ export const createRouter = (user: any, onLogout: () => void) =>
         { path: "view", element: <ViewNotes /> },
         { path: "view-note", element: <ViewSingleNote /> },
         { path: "edit-note", element: <EditNote /> },
+        { path: "messages", element: <Messages /> }, 
         { path: "summarize", element: <SummarizeNote /> },
         { path: "evaluate", element: <EvaluateNote /> },
         { path: "search", element: <SearchNotes /> },

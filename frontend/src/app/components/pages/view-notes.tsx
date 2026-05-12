@@ -34,7 +34,7 @@ export function ViewNotes() {
   const [allNotes, setAllNotes] = useState<any[]>([]);
 
   const [isShareOpen, setIsShareOpen] = useState(false);
-  const [shareUsername, setShareUsername] = useState("");
+  const [shareEmail, setShareEmail] = useState("");
   const [shareMsg, setShareMsg] = useState("");
   const [isSharing, setIsSharing] = useState(false);
 
@@ -98,17 +98,17 @@ export function ViewNotes() {
   };
 
   const handleShareSubmit = async () => {
-    if (!shareUsername.trim() || !selectedNote) return;
+    if (!shareEmail.trim() || !selectedNote) return;
     setIsSharing(true);
     try {
       await api.messages.send({
-        receiver_username: shareUsername.trim(),
-        content: shareMsg.trim() || `I shared a note with you: ${selectedNote.title}`,
+        receiver_email: shareEmail.trim(),
+        content: shareMsg.trim() || `I shared a note with you: ${selectedNote.title || "Untitled"}`,
         note_id: selectedNote.id
       });
       toast.success("Note shared successfully!");
       setIsShareOpen(false);
-      setShareUsername("");
+      setShareEmail("");
       setShareMsg("");
     } catch (err: any) {
       toast.error(err.message || "Failed to share note");
@@ -308,14 +308,15 @@ export function ViewNotes() {
           <DialogHeader className="">
             <DialogTitle className="text-white">Share Note</DialogTitle>
             <DialogDescription className="text-gray-400">
-              Enter the username of the person you want to share with.
+              Enter the email address of the person you want to share with.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <Input
-              placeholder="@username"
-              value={shareUsername}
-              onChange={(e) => setShareUsername(e.target.value)}
+              placeholder="user@example.com"
+              type="email"
+              value={shareEmail}
+              onChange={(e) => setShareEmail(e.target.value)}
               className="border-white/20 bg-white/5 text-white placeholder:text-gray-500"
             />
             <Input
@@ -336,7 +337,7 @@ export function ViewNotes() {
             <Button
               variant="default"
               onClick={handleShareSubmit}
-              disabled={isSharing || !shareUsername.trim()}
+              disabled={isSharing || !shareEmail.trim()}
               className="bg-cyan-600 hover:bg-cyan-700 text-white"
             >
               {isSharing ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
