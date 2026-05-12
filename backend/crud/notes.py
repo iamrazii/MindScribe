@@ -53,7 +53,6 @@ def handle_note_update(
     new_vectors = embedding_service.encode_documents(new_texts)
     document_vector = np.mean(new_vectors, axis=0).tolist()
 
-    # Fixed: Added user_id to ClusterService initialization
     cluster_service = ClusterService(db, user_id)
     clusterToUse = cluster_service.AssignCluster(title, content, document_vector)
 
@@ -116,35 +115,29 @@ def retrieve_chunks_for_summary(db: Session, topic: str, user_id, limit: int = 1
     results = db.execute(stmt).all()
     return [{"content": row[0], "source": row[1], "distance": row[2]} for row in results]
 
-def get_context_radar_suggestions(db: Session, note_id, user_id, content: Optional[str] = None, limit: int = 5) -> List[dict]:
-    if not content:
-        stmt = select(Notes).where(Notes.id == note_id, Notes.user_id == user_id)
-        source_note = db.execute(stmt).scalar_one_or_none()
-        if not source_note or not source_note.content:
-            return []
-        content = source_note.content
-
-    if not content.strip():
+def get_context_radar_suggestions(db: Session, note_id, user_id, limit: int = 5, distance_threshold: float = 0.45) -> List[dict]:
+    stmt = select(Notes).where(Notes.id == note_id, Notes.user_id == user_id)
+    source_note = db.execute(stmt).scalar_one_or_none()
+    if not source_note:
         return []
-
-    # Avoid truncation by splitting the live text the exact same way we populated the DB
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    chunk_texts = text_splitter.split_text(content)
-    if not chunk_texts:
+        
+    chunks_stmt = select(NoteChunks.embedding).where(NoteChunks.note_id == note_id)
+    chunk_embeddings = db.execute(chunks_stmt).scalars().all()
+    if not chunk_embeddings:
         return []
-
-    vectors = embedding_service.encode_documents(chunk_texts)
-    source_vector = np.mean(vectors, axis=0).tolist()
+        
+    source_vector = np.mean([emb for emb in chunk_embeddings], axis=0).tolist()
     
-    distance_col = NoteChunks.embedding.cosine_distance(source_vector).label("distance")
+    distance_expr = NoteChunks.embedding.cosine_distance(source_vector)
     
     radar_stmt = (
-        select(Notes.id, Notes.title, NoteChunks.content, distance_col)
+        select(Notes.id, Notes.title, NoteChunks.content, distance_expr.label("distance"))
         .join(Notes, NoteChunks.note_id == Notes.id)
         .where(Notes.user_id == user_id)
         .where(Notes.id != note_id)
-        .order_by(distance_col)
-        .limit(limit * 5) # increased limit to ensure enough rows after unique note dedup
+        .where(distance_expr < distance_threshold) 
+        .order_by(distance_expr)
+        .limit(limit)
     )
     
     results = db.execute(radar_stmt).all()
@@ -152,6 +145,7 @@ def get_context_radar_suggestions(db: Session, note_id, user_id, content: Option
     suggestions = {}
     for row in results:
         nid = row[0]
+       
         if nid not in suggestions:
             suggestions[nid] = {
                 "note_id": nid,
@@ -159,7 +153,5 @@ def get_context_radar_suggestions(db: Session, note_id, user_id, content: Option
                 "excerpt": row[2][:150] + "...",
                 "distance": float(row[3])
             }
-            if len(suggestions) == limit:
-                break
             
-    return list(suggestions.values())
+    return list(suggestions.values())[:limit]
