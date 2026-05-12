@@ -1,6 +1,4 @@
-"""
-routers/auth.py – /api/auth/register  &  /api/auth/login
-"""
+
 import dns.resolver
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -29,8 +27,6 @@ def _domain_has_mx(email: str) -> bool:
         return False
 
 
-# ── Register ─────────────────────────────────────────────────────────────────
-
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
 
@@ -52,9 +48,6 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_409_CONFLICT,
             detail="This username is already taken.",
         )
-
-    # 3. Create user
-    # We reuse the existing crud.user but pass a duck-typed object
     class _UserCreate:
         username = body.username
         email = body.email
@@ -71,7 +64,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     )
 
 
-# ── Login ─────────────────────────────────────────────────────────────────────
+
 
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):

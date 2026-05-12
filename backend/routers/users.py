@@ -1,6 +1,4 @@
-"""
-routers/users.py – /api/users/me  &  /api/users/search
-"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session

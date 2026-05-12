@@ -1,9 +1,4 @@
-"""
-routers/messages.py
 
-Messaging: sender looks up receiver by username (not ID).
-Message IDs are kept in query params, never in path segments.
-"""
 import uuid
 from typing import List
 
