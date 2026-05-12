@@ -226,15 +226,7 @@ export function CreateNote() {
                     className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-2"
                   >
                     <p className="text-sm text-gray-300">{suggestion.text}</p>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => insertSuggestion(suggestion.text)}
-                      className="w-full bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30"
-                    >
-                      <ArrowRight className="mr-2 size-3" />
-                      Insert into Editor
-                    </Button>
+                    
                   </div>
                 ))}
               </CardContent>
