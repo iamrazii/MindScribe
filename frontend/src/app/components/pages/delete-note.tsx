@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { AlertCircle, Trash2, Search, FileText, Clock, X, Loader2 } from "lucide-react";
+import { AlertCircle, Trash2, Search, FileText, Clock, X } from "lucide-react";
 import { Badge } from "../ui/badge";
 import {
   AlertDialog,
@@ -17,131 +17,175 @@ import {
 import { toast } from "sonner";
 import { api } from "../../lib/api";
 
-interface Note {
-  id: string;
-  title: string | null;
-  content: string;
-  created_at: string;
-}
-
 export function DeleteNote() {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [notes, setNotes] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
-  useEffect(() => {
-    api.notes
-      .list()
-      .then((data) => setNotes(data ?? []))
-      .catch(() => toast.error("Failed to load notes"))
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  const filtered = notes.filter(
-    (n) =>
-      (n.title ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      n.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleDeleteConfirm = async () => {
-    if (!noteToDelete) return;
-    setIsDeleting(true);
+  const fetchNotes = async () => {
     try {
-      await api.notes.delete(noteToDelete.id);
-      setNotes((prev) => prev.filter((n) => n.id !== noteToDelete.id));
-      toast.success(`"${noteToDelete.title ?? "Untitled"}" deleted`);
-      setNoteToDelete(null);
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Delete failed");
-    } finally {
-      setIsDeleting(false);
+      const data = await api.notes.list();
+      setNotes(data || []);
+    } catch (error) {
+      toast.error('Failed to load notes');
     }
   };
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  useEffect(() => {
+    fetchNotes();
+  }, []);
 
-  const wordCount = (content: string) =>
-    content.trim() ? content.trim().split(/\s+/).length : 0;
+  const filteredNotes = notes.filter((note) =>
+    (note.title && note.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-20">
-        <Loader2 className="size-8 animate-spin text-cyan-400" />
-      </div>
+  const handleSelectNote = (id: string) => {
+    setSelectedNotes((prev) =>
+      prev.includes(id) ? prev.filter((noteId) => noteId !== id) : [...prev, id]
     );
-  }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedNotes.length === filteredNotes.length) {
+      setSelectedNotes([]);
+    } else {
+      setSelectedNotes(filteredNotes.map((note) => note.id));
+    }
+  };
+
+  const handleDeleteSingle = (id: string) => {
+    setNoteToDelete(id);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteSingle = async () => {
+    if (noteToDelete) {
+      try {
+        await api.notes.delete(noteToDelete);
+        setNotes((prev) => prev.filter((note) => note.id !== noteToDelete));
+        toast.success("Note deleted successfully");
+        window.dispatchEvent(new Event('notesUpdated'));
+      } catch (error) {
+        toast.error('Failed to delete note');
+      } finally {
+        setShowDeleteDialog(false);
+        setNoteToDelete(null);
+      }
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedNotes.length > 0) {
+      setShowBulkDeleteDialog(true);
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    try {
+      for (const id of selectedNotes) {
+        await api.notes.delete(id);
+      }
+      setNotes((prev) => prev.filter((note) => !selectedNotes.includes(note.id)));
+      toast.success(`${selectedNotes.length} notes deleted successfully`);
+      setSelectedNotes([]);
+      window.dispatchEvent(new Event('notesUpdated'));
+    } catch (error) {
+      toast.error('Error occurred during bulk deletion');
+    } finally {
+      setShowBulkDeleteDialog(false);
+    }
+  };
 
   return (
-    <div className="p-6 lg:p-8 font-sans">
+    <div className="p-6 lg:p-8">
       <div className="mb-6">
         <h1 className="mb-2 text-3xl font-bold text-white">Delete Notes</h1>
-        <p className="text-gray-300">Permanently remove notes you no longer need</p>
+        <p className="text-gray-300">Manage and remove unwanted notes</p>
       </div>
 
-      {/* Warning banner */}
-      <Card className="mb-6 border-rose-500/30 bg-rose-500/10 backdrop-blur-sm">
-        <CardContent className="flex items-center gap-3 p-4 relative z-10">
-          <AlertCircle className="size-5 text-rose-400 shrink-0" />
-          <p className="text-sm text-rose-300">
-            Deleted notes cannot be recovered. The note's cluster will be cleaned up automatically.
-          </p>
+      <Card className="mb-6 border-red-500/20 bg-red-500/5 backdrop-blur-sm">
+        <CardContent className="flex items-start gap-3 p-4">
+          <AlertCircle className="size-5 flex-shrink-0 text-red-400" />
+          <div className="text-sm">
+            <p className="mb-1 text-red-200">
+              <strong>Warning:</strong> Deleted notes cannot be recovered.
+            </p>
+            <p className="text-red-300/80">Please review carefully before deleting any notes.</p>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Search */}
-      <div className="mb-6 relative sm:max-w-md">
-        <Input
-          placeholder="Filter notes..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="border-white/20 bg-white/5 pl-10 pr-10 text-white placeholder:text-gray-500"
-        />
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-          >
-            <X className="size-4" />
-          </button>
-        )}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 sm:max-w-md">
+          <Input
+            placeholder="Search notes to delete..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="border-white/20 bg-white/5 pl-10 pr-10 text-white placeholder:text-gray-500 focus:border-cyan-500/50 focus:ring-cyan-500/20"
+          />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleSelectAll} className="border-white/20 bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white">
+            {selectedNotes.length === filteredNotes.length && filteredNotes.length > 0 ? "Deselect All" : "Select All"}
+          </Button>
+          {selectedNotes.length > 0 && (
+            <Button variant="default" size="sm" onClick={handleDeleteSelected} className="bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-900/20">
+              <Trash2 className="mr-2 size-4" />
+              Delete Selected ({selectedNotes.length})
+            </Button>
+          )}
+        </div>
       </div>
 
-      {filtered.length > 0 ? (
-        <div className="space-y-3">
-          {filtered.map((note) => (
+      {filteredNotes.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredNotes.map((note) => (
             <Card
               key={note.id}
-              className="border-white/10 bg-white/5 backdrop-blur-sm transition-all hover:bg-white/10"
+              className={`group border-white/10 bg-white/5 backdrop-blur-sm transition-all hover:bg-white/10 ${
+                selectedNotes.includes(note.id) ? "ring-2 ring-cyan-500 bg-cyan-500/5" : ""
+              }`}
             >
-              <CardContent className="flex items-center justify-between p-4 relative z-10">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-rose-500/10">
-                    <FileText className="size-5 text-rose-400" />
+              <CardHeader className="">
+                <div className="mb-2 flex items-start justify-between">
+                  <Badge variant="outline" className="bg-cyan-600/20 text-cyan-400 border-cyan-500/30">Note</Badge>
+                  <input
+                    type="checkbox"
+                    checked={selectedNotes.includes(note.id)}
+                    onChange={() => handleSelectNote(note.id)}
+                    className="size-4 cursor-pointer rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900"
+                  />
+                </div>
+                <CardTitle className="line-clamp-2 text-white">{note.title || "Untitled"}</CardTitle>
+              </CardHeader>
+              <CardContent className="">
+                <p className="mb-4 line-clamp-3 text-sm text-gray-300">{note.content}</p>
+                <div className="mb-4 flex items-center justify-between text-xs text-gray-400">
+                  <div className="flex items-center gap-1">
+                    <Clock className="size-3" />
+                    <span>{new Date(note.created_at).toLocaleDateString()}</span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-white">
-                      {note.title ?? "Untitled"}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Clock className="size-3" />
-                        {formatDate(note.created_at)}
-                      </span>
-                      <span>{wordCount(note.content)} words</span>
-                    </div>
-                  </div>
+                  <span>{note.content?.split(/\s+/).length || 0} words</span>
                 </div>
                 <Button
+                  variant="outline"
                   size="sm"
-                  variant="ghost"
-                  onClick={() => setNoteToDelete(note)}
-                  className="shrink-0 text-gray-400 hover:text-rose-400 hover:bg-rose-500/10"
+                  onClick={() => handleDeleteSingle(note.id)}
+                  className="w-full border-red-500/30 bg-red-500/5 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors"
                 >
-                  <Trash2 className="size-4" />
+                  <Trash2 className="mr-2 size-4" />
+                  Delete Note
                 </Button>
               </CardContent>
             </Card>
@@ -149,40 +193,61 @@ export function DeleteNote() {
         </div>
       ) : (
         <Card className="border-white/10 bg-white/5 backdrop-blur-sm">
-          <CardContent className="flex flex-col items-center justify-center py-12 relative z-10">
+          <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="mb-4 size-12 text-gray-500" />
-            <h3 className="mb-2 text-lg text-white font-semibold">
-              {notes.length === 0 ? "No notes found" : "No notes match your filter"}
+            <h3 className="mb-2 text-lg text-white">
+              {searchQuery ? "No notes found" : "No notes to delete"}
             </h3>
             <p className="text-gray-400">
-              {notes.length === 0 ? "Create a note first" : "Try different keywords"}
+              {searchQuery ? "Try adjusting your search criteria" : "All your notes have been deleted or you have no notes yet"}
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Confirm dialog */}
-      <AlertDialog open={!!noteToDelete} onOpenChange={() => setNoteToDelete(null)}>
-        <AlertDialogContent className="border-white/10 bg-[#0f172a] text-white">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{noteToDelete?.title ?? "Untitled"}"?</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
-              This action is permanent and cannot be undone. The note will be removed along with all
-              its associated data.
+      {notes.length > 0 && (
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <Card className="border-white/10 bg-white/5 backdrop-blur-sm">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-white">{notes.length}</div>
+              <div className="text-sm text-gray-400">Total Notes</div>
+            </CardContent>
+          </Card>
+          <Card className="border-cyan-500/20 bg-cyan-500/5 backdrop-blur-sm">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-cyan-400">{selectedNotes.length}</div>
+              <div className="text-sm text-cyan-300/60">Selected for Deletion</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="border-white/10 bg-slate-900 shadow-2xl shadow-black">
+          <AlertDialogHeader className="">
+            <AlertDialogTitle className="text-white">Delete Note</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Are you sure you want to delete this note? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-white/20 text-gray-300 bg-transparent hover:bg-white/10">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              disabled={isDeleting}
-              className="bg-rose-600 hover:bg-rose-700 text-white"
-            >
-              {isDeleting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}
-              Delete Note
-            </AlertDialogAction>
+          <AlertDialogFooter className="">
+            <AlertDialogCancel className="border-white/20 bg-white/5 text-gray-300 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSingle} className="bg-red-600 hover:bg-red-700 text-white">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent className="border-white/10 bg-slate-900 shadow-2xl shadow-black">
+          <AlertDialogHeader className="">
+            <AlertDialogTitle className="text-white">Delete Multiple Notes</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Are you sure you want to delete {selectedNotes.length} note{selectedNotes.length !== 1 ? "s" : ""}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="">
+            <AlertDialogCancel className="border-white/20 bg-white/5 text-gray-300 hover:bg-white/10">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-red-600 hover:bg-red-700 text-white">Delete All</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

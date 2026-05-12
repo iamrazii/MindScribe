@@ -1,14 +1,5 @@
-/**
- * lib/api.ts
- *
- * All fetch calls go through here.
- * - Token is stored in memory (not localStorage/sessionStorage) for security.
- * - IDs are passed as query params, never in URL path segments.
- */
-
 const BASE = "http://localhost:8000/api";
 
-// ── In-memory token store ─────────────────────────────────────────────────────
 let _token: string | null = null;
 
 export function setToken(t: string | null) {
@@ -30,7 +21,6 @@ async function handleResponse(res: Response) {
   return res.json();
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
 export const api = {
   auth: {
     register: (body: { username: string; email: string; password: string }) =>
@@ -48,7 +38,6 @@ export const api = {
       }).then(handleResponse),
   },
 
-  // ── Notes ──────────────────────────────────────────────────────────────────
   notes: {
     list: () =>
       fetch(`${BASE}/notes`, { headers: authHeaders() }).then(handleResponse),
@@ -103,15 +92,27 @@ export const api = {
       fetch(`${BASE}/notes/radar?note_id=${noteId}`, {
         headers: authHeaders(),
       }).then(handleResponse),
+
+    generate: (prompt: string) =>
+      fetch(`${BASE}/notes/generate`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ prompt }),
+      }).then(handleResponse),
+
+    suggest: (content: string) =>
+      fetch(`${BASE}/notes/suggest`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ content }),
+      }).then(handleResponse),
   },
 
-  // ── Clusters ───────────────────────────────────────────────────────────────
   clusters: {
     list: () =>
       fetch(`${BASE}/clusters`, { headers: authHeaders() }).then(handleResponse),
   },
 
-  // ── Messages ───────────────────────────────────────────────────────────────
   messages: {
     send: (body: {
       receiver_username: string;
@@ -136,7 +137,6 @@ export const api = {
       }).then(handleResponse),
   },
 
-  // ── Users ──────────────────────────────────────────────────────────────────
   users: {
     me: () =>
       fetch(`${BASE}/users/me`, { headers: authHeaders() }).then(handleResponse),
