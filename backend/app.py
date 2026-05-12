@@ -1,7 +1,3 @@
-"""
-Mindscribe – FastAPI Application Entry Point
-Run with: uvicorn app:app --reload --port 8000
-"""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,10 +8,8 @@ from models.entity import Base
 # Routers
 from routers import auth, notes, clusters, messages, users
 
-# ── DB bootstrap ────────────────────────────────────────────────────────────
 Base.metadata.create_all(bind=engine)
 
-# ── App ─────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Mindscribe API",
     version="1.0.0",
@@ -23,7 +17,6 @@ app = FastAPI(
     redoc_url=None,
 )
 
-# ── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],   # Vite dev server
@@ -32,7 +25,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Route registration ────────────────────────────────────────────────────────
 app.include_router(auth.router,     prefix="/api/auth",     tags=["Auth"])
 app.include_router(notes.router,    prefix="/api/notes",    tags=["Notes"])
 app.include_router(clusters.router, prefix="/api/clusters", tags=["Clusters"])

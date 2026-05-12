@@ -90,7 +90,6 @@ class NoteChunks(Base):
     
     embedding: Mapped[VECTOR] = mapped_column(VECTOR(384)) 
 
-    # FIXED: Changed int to uuid.UUID
     note_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("notes.id", ondelete="CASCADE")
     )
@@ -122,9 +121,14 @@ class Clusters(Base):
     __tablename__ = "clusters"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE")
+    )
     name: Mapped[str] = mapped_column(unique=True)
     description: Mapped[str]
     cluster_vector: Mapped[VECTOR] = mapped_column(VECTOR(384))
+
+    
     
     # (1:m) Cluster -> Notes 
     notes: Mapped[List["Notes"]] = relationship(

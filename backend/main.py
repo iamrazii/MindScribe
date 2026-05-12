@@ -50,9 +50,6 @@ def setup_two_test_users(db):
     db.refresh(bob)
     return alice, bob
 
-# ---------------------------------------------------------
-# TEST PHASE 1: ROUTING, DRIFTING & GARBAGE COLLECTION
-# ---------------------------------------------------------
 def run_advanced_cluster_tests():
     db = SessionLocal()
     try:
@@ -99,9 +96,6 @@ def run_advanced_cluster_tests():
         db.close()
 
 
-# ---------------------------------------------------------
-# TEST PHASE 2: THE MITOSIS SIMULATION
-# ---------------------------------------------------------
 def run_mitosis_simulation():
     db = SessionLocal()
     try:
@@ -170,9 +164,6 @@ def run_mitosis_simulation():
         db.close()
 
 
-# ---------------------------------------------------------
-# TEST PHASE 3: MESSAGING ARCHITECTURE
-# ---------------------------------------------------------
 def run_message_tests():
     db = SessionLocal()
     try:
