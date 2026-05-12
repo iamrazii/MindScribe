@@ -41,7 +41,7 @@ class ClusterService:
             return best_cluster.id
             
         else:
-            print("🌐 Asking Groq to name the new cluster...")
+            print(" Asking Groq to name the new cluster...")
             chat = ChatService()
             smart_name = chat.generate_cluster_name([
                 {"title": title, "content": content}
@@ -77,26 +77,26 @@ class ClusterService:
         ).scalar_one_or_none()
         
         if not cluster:
-            print("⚠️ Abort: Cluster not found in the database.")
+            print(" Abort: Cluster not found in the database.")
             return False
             
         if len(cluster.notes) < self.MIN_NOTES_FOR_MITOSIS:
-            print(f"⚠️ Abort: Cluster '{cluster.name}' only has {len(cluster.notes)} notes. Needs {self.MIN_NOTES_FOR_MITOSIS} to trigger split analysis.")
+            print(f" Abort: Cluster '{cluster.name}' only has {len(cluster.notes)} notes. Needs {self.MIN_NOTES_FOR_MITOSIS} to trigger split analysis.")
             return False 
 
         valid_notes, X_array = self._extract_pooled_vectors(cluster)
         
         if len(valid_notes) < self.MIN_NOTES_FOR_MITOSIS:
-            print(f"⚠️ Abort: Found enough notes, but only {len(valid_notes)} had valid vectors.")
+            print(f" Abort: Found enough notes, but only {len(valid_notes)} had valid vectors.")
             return False
 
         labels, centroid_0, centroid_1, distance = self._calculate_cluster_split(X_array)
 
         if distance < self.MITOSIS_SPLIT_THRESHOLD:
-            print(f"⚠️ Abort: Cluster '{cluster.name}' notes are too semantically similar. (Distance: {distance:.3f} is less than threshold {self.MITOSIS_SPLIT_THRESHOLD})")
+            print(f" Abort: Cluster '{cluster.name}' notes are too semantically similar. (Distance: {distance:.3f} is less than threshold {self.MITOSIS_SPLIT_THRESHOLD})")
             return False 
 
-        print(f"🧬 CLuster division triggered for '{cluster.name}'! (Distance: {distance:.3f})")
+        print(f" CLuster division triggered for '{cluster.name}'! (Distance: {distance:.3f})")
         
         self._execute_split_in_db(cluster, centroid_0, centroid_1, labels, valid_notes)
         return True
