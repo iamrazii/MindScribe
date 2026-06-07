@@ -1,2 +1,16 @@
-frontend/node_modules/*
-backend/.env
+# Environments
+.env
+env/
+venv/
+ENV/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Operating System files
+.DS_Store
+Thumbs.db

@@ -15,7 +15,17 @@ function authHeaders(): Record<string, string> {
 async function handleResponse(res: Response) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail ?? "Request failed");
+    // FastAPI validation errors return detail as an array of objects
+    const detail = err.detail;
+    let message: string;
+    if (typeof detail === "string") {
+      message = detail;
+    } else if (Array.isArray(detail)) {
+      message = detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join(", ");
+    } else {
+      message = "Request failed";
+    }
+    throw new Error(message);
   }
   if (res.status === 204) return null;
   return res.json();
@@ -140,6 +150,13 @@ export const api = {
   users: {
     me: () =>
       fetch(`${BASE}/users/me`, { headers: authHeaders() }).then(handleResponse),
+
+    update: (body: { username?: string; password?: string; profile_picture_url?: string }) =>
+      fetch(`${BASE}/users/me`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      }).then(handleResponse),
 
     search: (email: string) =>
       fetch(`${BASE}/users/search?email=${encodeURIComponent(email)}`, {

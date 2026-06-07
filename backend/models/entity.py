@@ -16,6 +16,7 @@ class Users(Base):
     username: Mapped[str] = mapped_column(unique=True, index=True)
     email: Mapped[str] = mapped_column(unique=True, index=True)
     hashed_password: Mapped[str]
+    profile_picture_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # 1:m (user -> notes)
     notes: Mapped[List["Notes"]] = relationship(

@@ -56,16 +56,16 @@ export function LoginForm({ onLoginSuccess }: Props) {
   return (
     <div className="w-full max-w-[420px]">
       <Tabs defaultValue="login" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-black/20 p-1 backdrop-blur-md">
+        <TabsList className="flex w-full flex-row rounded-2xl bg-white/10 p-1 backdrop-blur-md border border-white/20">
           <TabsTrigger
             value="login"
-            className="rounded-xl py-2 text-gray-200 data-[state=active]:bg-white data-[state=active]:text-black transition-all"
+            className="flex-1 rounded-xl py-2 text-white/60 font-medium transition-all data-[state=active]:bg-white/25 data-[state=active]:text-white data-[state=active]:font-semibold data-[state=active]:shadow-sm"
           >
             Login
           </TabsTrigger>
           <TabsTrigger
             value="signup"
-            className="rounded-xl py-2 text-gray-200 data-[state=active]:bg-white data-[state=active]:text-black transition-all"
+            className="flex-1 rounded-xl py-2 text-white/60 font-medium transition-all data-[state=active]:bg-white/25 data-[state=active]:text-white data-[state=active]:font-semibold data-[state=active]:shadow-sm"
           >
             Sign Up
           </TabsTrigger>
@@ -73,18 +73,18 @@ export function LoginForm({ onLoginSuccess }: Props) {
 
         {/* ── Login Tab ──────────────────────────────────────────────────── */}
         <TabsContent value="login" className="mt-6">
-          <Card className="overflow-hidden border-none bg-white shadow-2xl rounded-[2.5rem] p-4">
+          <Card className="overflow-hidden border border-white/20 bg-white/15 backdrop-blur-xl shadow-2xl rounded-[2.5rem] p-4">
             <form onSubmit={loginForm.handleSubmit(onLogin)}>
-              <CardContent className="space-y-6 pt-8">
+              <CardContent className="space-y-6 pt-8 text-white">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email" className="text-sm font-bold text-gray-700">
+                  <Label htmlFor="login-email" className="text-sm font-bold text-white">
                     Email
                   </Label>
                   <Input
                     id="login-email"
                     type="email"
                     placeholder="you@example.com"
-                    className="h-12 rounded-xl border-none bg-gray-50 px-4 focus:ring-2 focus:ring-[#1a8a9d]"
+                    className="h-12 rounded-xl border border-white/20 bg-white/10 text-white placeholder:text-white/50 px-4 focus:ring-2 focus:ring-[#2dd4bf]"
                     {...loginForm.register("email", { required: "Email is required" })}
                   />
                   {loginForm.formState.errors.email && (
@@ -93,7 +93,7 @@ export function LoginForm({ onLoginSuccess }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="login-password" className="text-sm font-bold text-gray-700">
+                  <Label htmlFor="login-password" className="text-sm font-bold text-white">
                     Password
                   </Label>
                   <div className="relative">
@@ -101,7 +101,7 @@ export function LoginForm({ onLoginSuccess }: Props) {
                       id="login-password"
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
-                      className="h-12 rounded-xl border-none bg-gray-50 px-4 pr-12 focus:ring-2 focus:ring-[#1a8a9d]"
+                      className="h-12 rounded-xl border border-white/20 bg-white/10 text-white placeholder:text-white/50 px-4 pr-12 focus:ring-2 focus:ring-[#2dd4bf]"
                       {...loginForm.register("password", { required: "Password is required" })}
                     />
                     <button
@@ -133,14 +133,14 @@ export function LoginForm({ onLoginSuccess }: Props) {
 
         {/* ── Signup Tab ─────────────────────────────────────────────────── */}
         <TabsContent value="signup" className="mt-6">
-          <Card className="border-none bg-white shadow-2xl rounded-[2.5rem] p-4">
+          <Card className="border border-white/20 bg-white/15 backdrop-blur-xl shadow-2xl rounded-[2.5rem] p-4">
             <form onSubmit={signupForm.handleSubmit(onSignup)}>
-              <CardContent className="space-y-4 pt-8">
+              <CardContent className="space-y-4 pt-8 text-white">
                 <div className="space-y-1">
-                  <Label className="text-sm font-bold text-gray-700">Username</Label>
+                  <Label className="text-sm font-bold text-white">Username</Label>
                   <Input
                     placeholder="john_doe"
-                    className="h-12 rounded-xl border-none bg-gray-50"
+                    className="h-12 rounded-xl border border-white/20 bg-white/10 text-white placeholder:text-white/50"
                     {...signupForm.register("username", { required: "Username is required" })}
                   />
                   {signupForm.formState.errors.username && (
@@ -149,11 +149,11 @@ export function LoginForm({ onLoginSuccess }: Props) {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-sm font-bold text-gray-700">Email</Label>
+                  <Label className="text-sm font-bold text-white">Email</Label>
                   <Input
                     placeholder="you@example.com"
                     type="email"
-                    className="h-12 rounded-xl border-none bg-gray-50"
+                    className="h-12 rounded-xl border border-white/20 bg-white/10 text-white placeholder:text-white/50"
                     {...signupForm.register("email", { required: "Email is required" })}
                   />
                   {signupForm.formState.errors.email && (
@@ -162,11 +162,11 @@ export function LoginForm({ onLoginSuccess }: Props) {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-sm font-bold text-gray-700">Password</Label>
+                  <Label className="text-sm font-bold text-white">Password</Label>
                   <Input
                     type="password"
                     placeholder="Create a password"
-                    className="h-12 rounded-xl border-none bg-gray-50"
+                    className="h-12 rounded-xl border border-white/20 bg-white/10 text-white placeholder:text-white/50"
                     {...signupForm.register("password", { required: "Password is required" })}
                   />
                   <PasswordStrength password={signupForm.watch("password") || ""} />

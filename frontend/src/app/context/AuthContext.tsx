@@ -7,6 +7,7 @@ export interface AuthUser {
   email: string;
   user_id: string;
   access_token: string;
+  profile_picture_url?: string;
 }
 
 interface AuthContextValue {

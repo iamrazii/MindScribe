@@ -12,6 +12,7 @@ import { DeleteNote } from "./components/pages/delete-note";
 import { KnowledgeMap } from "./components/pages/knowledge-map";
 import { Chatbot } from "./components/pages/chatbot";
 import { Messages } from "./components/pages/messages"; // Imported Messages
+import { Profile } from "./components/pages/profile";
 
 export const createRouter = (user: any, onLogout: () => void) =>
   createBrowserRouter([
@@ -31,6 +32,7 @@ export const createRouter = (user: any, onLogout: () => void) =>
         { path: "delete", element: <DeleteNote /> },
         { path: "knowledge-map", element: <KnowledgeMap /> },
         { path: "chatbot", element: <Chatbot /> },
+        { path: "profile", element: <Profile /> },
       ],
     },
   ]);

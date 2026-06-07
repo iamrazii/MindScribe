@@ -22,6 +22,7 @@ interface DashboardLayoutProps {
   user?: {
     username?: string;
     email?: string;
+    profile_picture_url?: string;
   } | null;
   onLogout: () => void;
 }
@@ -91,15 +92,21 @@ export function DashboardLayout({ user, onLogout }: DashboardLayoutProps) {
           </nav>
 
           <div className="border-t border-white/10 p-4">
-            <div className="mb-4 flex items-center gap-3 px-2">
-              <div className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-teal-500">
-                <User className="size-5 text-white" />
+            <Link to="/profile" className="mb-4 flex items-center gap-3 px-2 hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer group">
+              <div className="relative size-10 shrink-0">
+                {user?.profile_picture_url ? (
+                  <img src={user.profile_picture_url} alt="Profile" className="size-full rounded-full object-cover border border-white/20 group-hover:border-cyan-400 transition-colors" />
+                ) : (
+                  <div className="flex size-full items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-teal-500 border border-white/20 group-hover:border-cyan-400 transition-colors">
+                    <User className="size-5 text-white" />
+                  </div>
+                )}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm text-white">{user?.username || 'User'}</div>
+                <div className="truncate text-sm font-medium text-white group-hover:text-cyan-400 transition-colors">{user?.username || 'User'}</div>
                 <div className="truncate text-xs text-gray-400">{user?.email || 'user@example.com'}</div>
               </div>
-            </div>
+            </Link>
             <Button 
               variant="outline" 
               size="sm" 

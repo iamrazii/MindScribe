@@ -61,6 +61,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         user_id=str(user.id),
         username=user.username,
         email=user.email,
+        profile_picture_url=user.profile_picture_url,
     )
 
 
@@ -81,4 +82,5 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         user_id=str(user.id),
         username=user.username,
         email=user.email,
+        profile_picture_url=user.profile_picture_url,
     )
