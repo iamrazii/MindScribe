@@ -2,19 +2,17 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from core.config import settings
 
-# ── Passlib (bcrypt)
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+# ── bcrypt (direct, avoids passlib Python 3.13 incompatibility)
 def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain[:72])
+    return bcrypt.hashpw(plain[:72].encode(), bcrypt.gensalt()).decode()
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain[:72], hashed)
+    return bcrypt.checkpw(plain[:72].encode(), hashed.encode())
 
 def create_access_token(user_id: uuid.UUID) -> str:
     """Return a signed JWT whose sub claim is the user's UUID (string)."""

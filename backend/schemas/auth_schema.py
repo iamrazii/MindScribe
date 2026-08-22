@@ -40,3 +40,4 @@ class TokenResponse(BaseModel):
     user_id: str
     username: str
     email: str
+    profile_picture_url: str | None = None

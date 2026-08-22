@@ -1,6 +1,4 @@
-"""
-core/deps.py – FastAPI dependencies (current-user guard)
-"""
+
 import uuid
 
 from fastapi import Depends, HTTPException, status

@@ -1,9 +1,4 @@
-/**
- * context/AuthContext.tsx
- *
- * Provides the logged-in user object and auth helpers to the whole app.
- * Token is held in memory via api.ts (setToken) — never in localStorage.
- */
+
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { setToken } from "../lib/api";
 
@@ -12,6 +7,7 @@ export interface AuthUser {
   email: string;
   user_id: string;
   access_token: string;
+  profile_picture_url?: string;
 }
 
 interface AuthContextValue {

@@ -1,14 +1,5 @@
-/**
- * lib/api.ts
- *
- * All fetch calls go through here.
- * - Token is stored in memory (not localStorage/sessionStorage) for security.
- * - IDs are passed as query params, never in URL path segments.
- */
-
 const BASE = "http://localhost:8000/api";
 
-// ── In-memory token store ─────────────────────────────────────────────────────
 let _token: string | null = null;
 
 export function setToken(t: string | null) {
@@ -24,13 +15,22 @@ function authHeaders(): Record<string, string> {
 async function handleResponse(res: Response) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail ?? "Request failed");
+    // FastAPI validation errors return detail as an array of objects
+    const detail = err.detail;
+    let message: string;
+    if (typeof detail === "string") {
+      message = detail;
+    } else if (Array.isArray(detail)) {
+      message = detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join(", ");
+    } else {
+      message = "Request failed";
+    }
+    throw new Error(message);
   }
   if (res.status === 204) return null;
   return res.json();
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
 export const api = {
   auth: {
     register: (body: { username: string; email: string; password: string }) =>
@@ -48,7 +48,6 @@ export const api = {
       }).then(handleResponse),
   },
 
-  // ── Notes ──────────────────────────────────────────────────────────────────
   notes: {
     list: () =>
       fetch(`${BASE}/notes`, { headers: authHeaders() }).then(handleResponse),
@@ -103,18 +102,30 @@ export const api = {
       fetch(`${BASE}/notes/radar?note_id=${noteId}`, {
         headers: authHeaders(),
       }).then(handleResponse),
+
+    generate: (prompt: string) =>
+      fetch(`${BASE}/notes/generate`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ prompt }),
+      }).then(handleResponse),
+
+    suggest: (content: string) =>
+      fetch(`${BASE}/notes/suggest`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ content }),
+      }).then(handleResponse),
   },
 
-  // ── Clusters ───────────────────────────────────────────────────────────────
   clusters: {
     list: () =>
       fetch(`${BASE}/clusters`, { headers: authHeaders() }).then(handleResponse),
   },
 
-  // ── Messages ───────────────────────────────────────────────────────────────
   messages: {
     send: (body: {
-      receiver_username: string;
+      receiver_email: string;
       content: string;
       note_id?: string;
     }) =>
@@ -136,13 +147,19 @@ export const api = {
       }).then(handleResponse),
   },
 
-  // ── Users ──────────────────────────────────────────────────────────────────
   users: {
     me: () =>
       fetch(`${BASE}/users/me`, { headers: authHeaders() }).then(handleResponse),
 
-    search: (username: string) =>
-      fetch(`${BASE}/users/search?username=${encodeURIComponent(username)}`, {
+    update: (body: { username?: string; password?: string; profile_picture_url?: string }) =>
+      fetch(`${BASE}/users/me`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      }).then(handleResponse),
+
+    search: (email: string) =>
+      fetch(`${BASE}/users/search?email=${encodeURIComponent(email)}`, {
         headers: authHeaders(),
       }).then(handleResponse),
   },
