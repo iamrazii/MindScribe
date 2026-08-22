@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: always
+    env_file:
+      - ./backend/.env   # <-- Loads POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app_net
+
+  backend:
+    build: ./backend
+    restart: always
+    env_file:
+      - ./backend/.env   # <-- Loads DATABASE_URL, GEMINI_API_KEY, etc.
+    depends_on:
+      - postgres
+    networks:
+      - app_net
+
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app_net
+
+volumes:
+  pgdata:
+
+networks:
+  app_net:
+    driver: bridge
